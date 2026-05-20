@@ -3,1032 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mountain Quest Shogi</title>
+    <title>Mountain Quest Shogi 2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
     <style>
-        body {
-            background-color: #0f172a;
-            color: #f1f5f9;
-            font-family: 'Noto Serif JP', serif;
+        body { background-color: #020617; color: #f1f5f9; font-family: 'Noto Serif JP', serif; }
+        .shogi-board {
+            display: grid; grid-template-columns: repeat(15, 1fr);
+            aspect-ratio: 1 / 1; width: 100%; max-width: 680px;
+            border: 4px solid #451a03; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
-        
-        .gold-glow {
-            box-shadow: 0 0 15px rgba(234, 179, 8, 0.6);
-            text-shadow: 0 0 8px rgba(234, 179, 8, 0.8);
-        }
-
-        /* 3D Mountain tiers visually represented in 2D grid */
-        .cell-normal { background-color: #dfc28d; border: 1px solid #78350f; }
-        .cell-tier1 { background-color: #8fa882; border: 1.5px solid #2d4a22; } /* Mountain Base */
-        .cell-tier2 { background-color: #637a77; border: 2px solid #1e2e2c; }  /* Mountain Mid */
-        .cell-tier3 { background-color: #b45309; border: 3px solid #fbbf24; animation: pulse-gold 3s infinite; } /* Summit! */
-
-        @keyframes pulse-gold {
-            0%, 100% { box-shadow: inset 0 0 12px rgba(251, 191, 36, 0.5); }
-            50% { box-shadow: inset 0 0 24px rgba(251, 191, 36, 0.9); }
-        }
-
-        /* Shogi board style with 15 columns */
-        .shogi-board-grid {
-            display: grid;
-            grid-template-columns: repeat(15, minmax(0, 1fr));
-            aspect-ratio: 1 / 1;
-            width: 100%;
-            max-width: 680px;
-            margin: 0 auto;
-            border: 4px solid #451a03;
-        }
-
-        .cell {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.2s;
-        }
-        
-        .cell:hover {
-            filter: brightness(1.15);
-        }
-
-        .cell.selected {
-            background-color: #eab308 !important;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-        }
-
+        .cell { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); }
+        .cell-plain { background-color: #dfc28d; }
+        .cell-mountain-base { background-color: #8fa882; }
+        .cell-mountain-mid { background-color: #637a77; }
+        .cell-summit { background-color: #b45309; border: 3px solid #fbbf24 !important; animation: summit-glow 2s infinite alternate; }
+        @keyframes summit-glow { from { box-shadow: inset 0 0 10px #fbbf24; } to { box-shadow: inset 0 0 30px #fbbf24, 0 0 15px #fbbf24; } }
+        .cell.selected { background-color: #eab308 !important; }
         .cell.valid-move::after {
-            content: '';
-            width: 16px;
-            height: 16px;
-            background-color: rgba(34, 197, 94, 0.8);
-            border: 2px solid white;
-            border-radius: 50%;
-            position: absolute;
-            z-index: 20;
-            animation: bounce-marker 1s infinite alternate;
+            content: ''; width: 14px; height: 14px; background: rgba(34, 197, 94, 0.8);
+            border: 2px solid white; border-radius: 50%; position: absolute; z-index: 30;
         }
-
-        @keyframes bounce-marker {
-            from { transform: scale(0.9); }
-            to { transform: scale(1.15); }
-        }
-
-        /* Flash animation for Mountain Capture event */
-        .flash-active {
-            animation: screen-flash 0.8s ease-out;
-        }
-
-        @keyframes screen-flash {
-            0% { background-color: rgba(234, 179, 8, 0.9); }
-            100% { background-color: transparent; }
-        }
-
-        .piece-img {
-            font-weight: bold;
-            font-size: 1.35rem;
-            z-index: 10;
-        }
-        
-        .piece-gote {
-            transform: rotate(180deg);
-            color: #1e293b;
-            text-shadow: 0 0 2px white;
-        }
-
-        .piece-sente {
-            color: #7f1d1d;
-            text-shadow: 0 0 2px white;
-        }
-
-        .piece-promoted {
-            color: #dc2626 !important;
-        }
-
-        /* Hand piece styling */
-        .hand-piece {
-            background-color: #dfc28d;
-            border: 2px solid #78350f;
-            cursor: pointer;
-            transition: transform 0.15s;
-        }
-        .hand-piece:hover {
-            transform: translateY(-4px);
-        }
-        .hand-piece.selected {
-            background-color: #f59e0b;
-            border-color: #f59e0b;
-        }
+        .piece { font-size: 1.2rem; font-weight: bold; z-index: 10; transition: transform 0.2s; }
+        .piece-sente { color: #7f1d1d; text-shadow: 0 0 3px white; }
+        .piece-gote { color: #1e293b; transform: rotate(180deg); text-shadow: 0 0 3px white; }
+        .piece-promoted { color: #dc2626 !important; }
+        #flash { position: fixed; inset: 0; pointer-events: none; z-index: 100; transition: opacity 0.5s; opacity: 0; background: white; }
+        .flash-trigger { opacity: 0.8 !important; }
+        .hand-area { background: #1e293b; border-radius: 8px; min-height: 80px; padding: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+        .hand-piece { background: #dfc28d; border: 1px solid #78350f; border-radius: 4px; padding: 2px 6px; font-weight: bold; color: #7f1d1d; cursor: pointer; }
+        .hand-piece.selected { background: #f59e0b; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between">
-    <!-- Flash Overlay for special event visual effects -->
-    <div id="flash-overlay" class="fixed inset-0 pointer-events-none z-50 transition-colors duration-500"></div>
-
-    <!-- Header -->
-    <header class="border-b border-amber-900 bg-slate-900 py-3 px-6 shadow-md">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3">
-                <span class="text-3xl text-amber-500"><i class="fa-solid fa-mountain-sun"></i></span>
-                <div>
-                    <h1 class="text-2xl font-bold tracking-wider text-amber-100 font-cinzel">MOUNTAIN QUEST SHOGI</h1>
-                    <p class="text-xs text-slate-400">15×15立体将棋： 頂の霊峰を巡る極限のタクティクス</p>
-                </div>
+<body class="p-4 flex flex-col items-center">
+    <div id="flash"></div>
+    <header class="mb-6 text-center">
+        <h1 class="text-4xl font-bold font-cinzel text-amber-500">MOUNTAIN QUEST SHOGI 2.0</h1>
+        <p class="text-slate-400">15×15広域盤面 ＆ 天空移動システム搭載</p>
+    </header>
+    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div class="flex flex-col gap-4">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-2"><h2 class="font-bold text-red-500">CPU 後手 (王)</h2><span id="gote-status" class="text-xs px-2 py-1 rounded bg-slate-800">待機中</span></div>
+                <div id="gote-hand" class="hand-area"></div>
             </div>
-            
-            <div class="flex items-center gap-4">
-                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-sm flex items-center gap-2">
-                    <span class="text-slate-400">難易度:</span>
-                    <select id="difficulty" class="bg-slate-900 text-amber-300 font-bold border-none focus:ring-0 cursor-pointer">
-                        <option value="beginner">ビギナー (瞬殺)</option>
-                        <option value="intermediate">中級 (駒得)</option>
-                        <option value="advanced" selected>極み (上級思考)</option>
-                    </select>
-                </div>
-                <button id="reset-btn" class="bg-red-700 hover:bg-red-600 text-white font-bold px-4 py-1.5 rounded-lg transition text-sm flex items-center gap-1">
-                    <i class="fa-solid fa-rotate-left"></i> 盤面初期化
-                </button>
+            <div class="bg-amber-900/20 p-4 rounded-xl border border-amber-900/50 text-xs text-amber-100">
+                <h3 class="font-bold mb-2 border-b border-amber-900 pb-1">頂上の法：</h3>
+                <p>● <strong>山狩り</strong>: 中央(7,7)に移動完了した瞬間、山岳エリア(5x5)の敵駒を全捕獲。</p>
+                <p class="mt-2">● <strong>天空移動</strong>: 頂上の駒は「飛車+角」の全方位スライドが可能。</p>
             </div>
         </div>
-    </header>
-
-    <!-- Main Game Area -->
-    <main class="max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-grow">
-        <!-- Left Side: Status and Hand pieces of Gote (CPU) -->
-        <section class="lg:col-span-3 flex flex-col gap-4">
-            <!-- CPU Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col gap-3">
-                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-red-500"><i class="fa-solid fa-laptop-code"></i></span>
-                        <h2 class="font-bold text-slate-200">後手 CPU (王)</h2>
-                    </div>
-                    <span id="gote-turn-badge" class="hidden bg-red-600 text-white text-xs px-2.5 py-0.5 rounded-full font-bold animate-pulse">思考中</span>
-                </div>
-                
-                <!-- Gote Captured pieces -->
-                <div>
-                    <h3 class="text-xs text-slate-400 mb-1.5 font-bold">CPUの持ち駒:</h3>
-                    <div id="gote-hand" class="grid grid-cols-5 gap-1.5 min-h-[50px] p-2 bg-slate-950 rounded-lg border border-slate-800">
-                        <!-- Filled dynamically -->
-                    </div>
-                </div>
+        <div class="lg:col-span-2 flex justify-center"><div id="board" class="shogi-board"></div></div>
+        <div class="flex flex-col gap-4">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-2"><h2 class="font-bold text-amber-500">あなた 先手 (玉)</h2><span id="sente-status" class="text-xs px-2 py-1 rounded bg-amber-500 text-slate-950 font-bold">手番</span></div>
+                <div id="sente-hand" class="hand-area"></div>
             </div>
-
-            <!-- Game Rules and Guide -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex-grow flex flex-col justify-between">
-                <div>
-                    <h2 class="font-bold border-b border-slate-800 pb-2 mb-3 text-amber-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-scroll"></i> 霊峰特別ルール
-                    </h2>
-                    <ul class="text-xs space-y-3 text-slate-300">
-                        <li class="flex gap-2">
-                            <span class="text-amber-500 font-bold">①</span>
-                            <span><strong>霊峰の三段構造:</strong><br>中央5×5が山岳。黄色の最高峰が山頂(7,7)です。</span>
-                        </li>
-                        <li class="flex gap-2">
-                            <span class="text-amber-500 font-bold">②</span>
-                            <span><strong>神殿の「山狩り」:</strong><br>山頂(7,7)に駒を止めると、山岳エリア(5×5)内のすべての敵の駒を即座に捕獲し、自分の持ち駒にします！</span>
-                        </li>
-                        <li class="flex gap-2">
-                            <span class="text-amber-500 font-bold">③</span>
-                            <span><strong>天空の機動力:</strong><br>山頂に位置する駒は、その一手に限り「飛車」＋「角」（全方向スライド）の動きが解放されます。</span>
-                        </li>
-                    </ul>
-                </div>
-                
-                <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                    <span>音響効果:</span>
-                    <button id="toggle-sound" class="text-amber-500 hover:text-amber-400 font-bold flex items-center gap-1">
-                        <i id="sound-icon" class="fa-solid fa-volume-high"></i> オン
-                    </button>
-                </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex-grow max-h-[300px] overflow-y-auto">
+                <h3 class="text-xs font-bold text-slate-500 mb-2 uppercase">戦績ログ</h3>
+                <div id="log" class="text-[10px] space-y-1 text-slate-300"></div>
             </div>
-        </section>
-
-        <!-- Center Column: The 15x15 Shogi Board -->
-        <section class="lg:col-span-6 flex flex-col items-center justify-center">
-            <div class="w-full max-w-[680px]">
-                <!-- Shogi Board Grid -->
-                <div id="board" class="shogi-board-grid shadow-2xl rounded-sm"></div>
-            </div>
-        </section>
-
-        <!-- Right Side: Status and Hand pieces of Sente (Player) -->
-        <section class="lg:col-span-3 flex flex-col gap-4">
-            <!-- Player Sente Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col gap-3">
-                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-amber-500"><i class="fa-solid fa-user-ninja"></i></span>
-                        <h2 class="font-bold text-slate-200">先手 あなた (玉)</h2>
-                    </div>
-                    <span id="sente-turn-badge" class="bg-amber-500 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-bold">あなたの番</span>
-                </div>
-                
-                <!-- Sente Captured pieces -->
-                <div>
-                    <h3 class="text-xs text-slate-400 mb-1.5 font-bold">あなたの持ち駒:</h3>
-                    <div id="sente-hand" class="grid grid-cols-5 gap-1.5 min-h-[50px] p-2 bg-slate-950 rounded-lg border border-slate-800">
-                        <!-- Filled dynamically -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Game Log Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col gap-3 flex-grow max-h-[340px]">
-                <h2 class="font-bold border-b border-slate-800 pb-2 text-slate-300 flex items-center gap-1.5">
-                    <i class="fa-solid fa-book-open-reader"></i> 戦績・ログ
-                </h2>
-                <div id="log-container" class="flex-grow overflow-y-auto bg-slate-950 rounded-lg p-3 border border-slate-800 text-xs space-y-1.5 max-h-[220px]">
-                    <div class="text-amber-400 font-bold">※ 山狩りの発動を狙って頂上を目指そう！</div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="border-t border-amber-950 bg-slate-950 py-3 text-center text-xs text-slate-500 font-cinzel tracking-widest">
-        &copy; 2026 MOUNTAIN QUEST SHOGI - CREATED FOR STRATEGY ENTHUSIASTS
-    </footer>
+            <button onclick="location.reload()" class="bg-red-900 hover:bg-red-800 text-white font-bold py-2 rounded transition">リセット</button>
+        </div>
+    </div>
 
     <script>
-        // ORIGINAL JAPANESE SOUND FX SYNTHESIS (Wooden clappers / Temple gong)
-        const soundEnabled = { val: true };
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playWoodenClapper() {
-            if (!soundEnabled.val) return;
-            // High-pitched woodblock sound with rapid decay
-            const osc1 = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(850, audioCtx.currentTime);
-            osc2.type = 'triangle';
-            osc2.frequency.setValueAtTime(862, audioCtx.currentTime); // minor offset for richness
-
-            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-
-            osc1.connect(gain);
-            osc2.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc1.start();
-            osc2.start();
-            osc1.stop(audioCtx.currentTime + 0.16);
-            osc2.stop(audioCtx.currentTime + 0.16);
-        }
-
-        function playTempleGong() {
-            if (!soundEnabled.val) return;
-            // Massive deep gong sound for Mountain Capture
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 1.5);
-
-            gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(audioCtx.currentTime + 2.1);
-        }
-
-        // Toggle sound click
-        document.getElementById('toggle-sound').onclick = () => {
-            soundEnabled.val = !soundEnabled.val;
-            const icon = document.getElementById('sound-icon');
-            if (soundEnabled.val) {
-                icon.className = 'fa-solid fa-volume-high';
-                document.getElementById('toggle-sound').innerHTML = '<i class="fa-solid fa-volume-high"></i> オン';
-            } else {
-                icon.className = 'fa-solid fa-volume-xmark';
-                document.getElementById('toggle-sound').innerHTML = '<i class="fa-solid fa-volume-xmark"></i> オフ';
-            }
-        };
-
-        // Shogi configuration
+        const BOARD_SIZE = 15; const PEAK = { r: 7, c: 7 }; const SENTE = 1, GOTE = -1;
         const PIECES = {
-            FU: { name: '歩', val: 100, prom: 'と', promVal: 700 },
-            KY: { name: '香', val: 300, prom: '杏', promVal: 700 },
-            KE: { name: '桂', val: 450, prom: '圭', promVal: 700 },
-            GI: { name: '銀', val: 650, prom: '全', promVal: 700 },
-            KI: { name: '金', val: 750, prom: null, promVal: 0 },
-            KA: { name: '角', val: 900, prom: '馬', promVal: 1300 },
-            HI: { name: '飛', val: 1050, prom: '龍', promVal: 1550 },
-            OU: { name: '玉', nameGote: '王', val: 999999, prom: null, promVal: 0 }
+            FU: { name: '歩', val: 100, prom: 'と' }, KY: { name: '香', val: 300, prom: '杏' },
+            KE: { name: '桂', val: 450, prom: '圭' }, GI: { name: '銀', val: 650, prom: '全' },
+            KI: { name: '金', val: 750 }, KA: { name: '角', val: 900, prom: '馬' },
+            HI: { name: '飛', val: 1050, prom: '龍' }, OU: { name: '玉', nameGote: '王', val: 1000000 }
         };
-
-        const SENTE = 1;
-        const GOTE = -1;
-
-        class MountainQuestShogi {
-            constructor() {
-                this.init();
-            }
-
-            init() {
-                // 15x15 board
-                this.board = Array(15).fill(null).map(() => Array(15).fill(null));
-                this.hands = { [SENTE]: {}, [GOTE]: {} };
-                for (let k in PIECES) {
-                    this.hands[SENTE][k] = 0;
-                    this.hands[GOTE][k] = 0;
-                }
-                this.turn = SENTE;
-                this.history = [];
-                this.lastMove = null;
-                this.setupBoard();
-            }
-
-            setupBoard() {
-                const place = (r, c, type, owner) => {
-                    this.board[r][c] = { type, owner, promoted: false };
-                };
-
-                // Gote (CPU)
-                const g = GOTE;
-                // Back row: Row 0
-                const backRow = ['KY', 'KE', 'GI', 'KI', 'HI', 'KA', 'KI', 'OU', 'KI', 'KA', 'HI', 'KI', 'GI', 'KE', 'KY'];
-                for(let i = 0; i < 15; i++) {
-                    place(0, i, backRow[i], g);
-                }
-                // Double Bishop/Rook setups on Row 1 (optional support but let's place extra defensive silvers and pawns)
-                place(1, 2, 'KA', g);
-                place(1, 12, 'HI', g);
-                // Pawns on Row 2
-                for(let i = 0; i < 15; i++) {
-                    place(2, i, 'FU', g);
-                }
-
-                // Sente (Player)
-                const s = SENTE;
-                // Back row: Row 14
-                const senteBackRow = ['KY', 'KE', 'GI', 'KI', 'HI', 'KA', 'KI', 'OU', 'KI', 'KA', 'HI', 'KI', 'GI', 'KE', 'KY'];
-                for(let i = 0; i < 15; i++) {
-                    place(14, i, senteBackRow[i], s);
-                }
-                // Double Bishop/Rook setups on Row 13
-                place(13, 2, 'HI', s);
-                place(13, 12, 'KA', s);
-                // Pawns on Row 12
-                for(let i = 0; i < 15; i++) {
-                    place(12, i, 'FU', s);
-                }
-            }
-
-            getPieceMoves(r, c, piece, board = this.board) {
-                const moves = [];
-                const owner = piece.owner;
-
-                // SPECIAL HEAVENLY MOBILITY: If piece is at the Summit (7, 7), it gains Rook + Bishop moves!
-                if (r === 7 && c === 7) {
-                    // Full slide in all 8 directions
-                    const dirs = [
-                        [-1, 0], [1, 0], [0, -1], [0, 1], // Orthogonal
-                        [-1, -1], [-1, 1], [1, -1], [1, 1] // Diagonal
-                    ];
-                    dirs.forEach(([dr, dc]) => {
-                        let nr = r + dr;
-                        let nc = c + dc;
-                        while(nr >= 0 && nr < 15 && nc >= 0 && nc < 15) {
-                            const target = board[nr][nc];
-                            if (!target) {
-                                moves.push({ r: nr, c: nc });
-                            } else {
-                                if (target.owner !== owner) {
-                                    moves.push({ r: nr, c: nc });
-                                }
-                                break;
-                            }
-                            nr += dr;
-                            nc += dc;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSfx(type) {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if(type === 'move') { osc.frequency.setValueAtTime(800, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+            else if (type === 'peak') { osc.type = 'sine'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.0); osc.start(); osc.stop(audioCtx.currentTime + 2.0); }
+        }
+        class Game {
+            constructor() { this.board = Array(15).fill(null).map(() => Array(15).fill(null)); this.hands = { [SENTE]: {}, [GOTE]: {} }; for(let k in PIECES) { this.hands[SENTE][k] = 0; this.hands[GOTE][k] = 0; } this.turn = SENTE; this.setup(); }
+            setup() { const p = (r, c, type, owner) => this.board[r][c] = { type, owner, promoted: false }; const layout = ['KY','KE','GI','KI','HI','KA','KI','OU','KI','KA','HI','KI','GI','KE','KY']; for(let i=0; i<15; i++) { p(0, i, layout[i], GOTE); p(2, i, 'FU', GOTE); p(14, i, layout[i], SENTE); p(12, i, 'FU', SENTE); } }
+            getPieceMoves(r, c, piece) {
+                const moves = []; const owner = piece.owner;
+                if (r === PEAK.r && c === PEAK.c) {
+                    [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr, dc]) => {
+                        let nr = r + dr, nc = c + dc; while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                            const t = this.board[nr][nc]; if(!t) moves.push({r: nr, c: nc}); else { if(t.owner !== owner) moves.push({r: nr, c: nc}); break; } nr += dr; nc += dc;
                         }
-                    });
-                    return moves;
+                    }); return moves;
                 }
-
                 const add = (dr, dc, slide = false) => {
-                    let nr = r + dr * owner;
-                    let nc = c + dc * owner;
-                    while (nr >= 0 && nr < 15 && nc >= 0 && nc < 15) {
-                        const target = board[nr][nc];
-                        if (!target) {
-                            moves.push({ r: nr, c: nc });
-                        } else {
-                            if (target.owner !== owner) moves.push({ r: nr, c: nc });
-                            break;
-                        }
-                        if (!slide) break;
-                        nr += dr * owner;
-                        nc += dc * owner;
+                    let nr = r + dr * owner, nc = c + dc * owner; while(nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                        const t = this.board[nr][nc]; if(!t) moves.push({r: nr, c: nc}); else { if(t.owner !== owner) moves.push({r: nr, c: nc}); break; } if(!slide) break; nr += dr * owner; nc += dc * owner;
                     }
                 };
-
-                const addGoldMoves = () => {
-                    add(-1, -1); add(-1, 0); add(-1, 1); 
-                    add(0, -1); add(0, 1); 
-                    add(1, 0);
-                };
-
-                if (!piece.promoted) {
-                    switch (piece.type) {
-                        case 'FU': add(-1, 0); break;
-                        case 'KY': add(-1, 0, true); break;
-                        case 'KE': 
-                            [[-2, -1], [-2, 1]].forEach(([dr, dc]) => {
-                                let nr = r + dr * owner;
-                                let nc = c + dc * owner;
-                                if (nr >= 0 && nr < 15 && nc >= 0 && nc < 15) {
-                                    const t = board[nr][nc];
-                                    if (!t || t.owner !== owner) moves.push({ r: nr, c: nc });
-                                }
-                            });
-                            break;
-                        case 'GI': add(-1, -1); add(-1, 0); add(-1, 1); add(1, -1); add(1, 1); break;
-                        case 'KI': addGoldMoves(); break;
-                        case 'KA': add(-1, -1, true); add(-1, 1, true); add(1, -1, true); add(1, 1, true); break;
-                        case 'HI': add(-1, 0, true); add(1, 0, true); add(0, -1, true); add(0, 1, true); break;
-                        case 'OU': 
-                            for(let dr = -1; dr <= 1; dr++) {
-                                for(let dc = -1; dc <= 1; dc++) {
-                                    if(dr || dc) add(dr, dc);
-                                }
-                            }
-                            break;
-                    }
-                } else {
-                    if (['FU', 'KY', 'KE', 'GI'].includes(piece.type)) {
-                        addGoldMoves();
-                    } else if (piece.type === 'KA') {
-                        add(-1, -1, true); add(-1, 1, true); add(1, -1, true); add(1, 1, true); 
-                        add(-1, 0); add(1, 0); add(0, -1); add(0, 1);
-                    } else if (piece.type === 'HI') {
-                        add(-1, 0, true); add(1, 0, true); add(0, -1, true); add(0, 1, true); 
-                        add(-1, -1); add(-1, 1); add(1, -1); add(1, 1);
-                    }
-                }
+                const gold = () => [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]].forEach(d => add(d[0], d[1]));
+                if(!piece.promoted) { switch(piece.type) { case 'FU': add(-1, 0); break; case 'KY': add(-1, 0, true); break; case 'KE': [[-2,-1],[-2,1]].forEach(d => add(d[0], d[1])); break; case 'GI': [[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1])); break; case 'KI': gold(); break; case 'KA': [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1], true)); break; case 'HI': [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1], true)); break; case 'OU': [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(d => add(d[0], d[1])); break; } }
+                else { if(['FU','KY','KE','GI'].includes(piece.type)) gold(); else if(piece.type === 'KA') { [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1], true)); [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1])); } else if(piece.type === 'HI') { [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1], true)); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1])); } }
                 return moves;
             }
-
-            getDropMoves(type, owner) {
-                const moves = [];
-                for (let r = 0; r < 15; r++) {
-                    for (let c = 0; c < 15; c++) {
-                        if (this.board[r][c]) continue;
-                        if (type === 'FU') {
-                            let nifu = false;
-                            for (let i = 0; i < 15; i++) {
-                                if (this.board[i][c] && this.board[i][c].type === 'FU' && !this.board[i][c].promoted && this.board[i][c].owner === owner) {
-                                    nifu = true;
-                                    break;
-                                }
-                            }
-                            if (nifu) continue;
-                            if ((owner === SENTE && r === 0) || (owner === GOTE && r === 14)) continue;
-                        }
-                        if (type === 'KY' && ((owner === SENTE && r === 0) || (owner === GOTE && r === 14))) continue;
-                        if (type === 'KE' && ((owner === SENTE && r <= 1) || (owner === GOTE && r >= 13))) continue;
-                        moves.push({ r, c });
-                    }
-                }
-                return moves;
-            }
-
-            // Get valid legal moves for a player
-            getLegalMoves(owner) {
-                const moves = [];
-                for (let r = 0; r < 15; r++) {
-                    for (let c = 0; c < 15; c++) {
-                        const p = this.board[r][c];
-                        if (p && p.owner === owner) {
-                            this.getPieceMoves(r, c, p).forEach(m => {
-                                moves.push({ from: { r, c }, to: m });
-                            });
-                        }
-                    }
-                }
-                for (let type in this.hands[owner]) {
-                    if (this.hands[owner][type] > 0) {
-                        this.getDropMoves(type, owner).forEach(d => {
-                            moves.push({ from: 'hand', type, to: d });
-                        });
-                    }
-                }
-
-                // Strictly filter out moves that leave king checked
-                return moves.filter(m => {
-                    this.makeMove(m, false, false);
-                    const check = this.isCheck(owner);
-                    this.undoMove();
-                    return !check;
-                });
-            }
-
-            isCheck(owner) {
-                const kingPos = this.findKing(owner);
-                if (!kingPos) return false;
-                const opp = -owner;
-                for (let r = 0; r < 15; r++) {
-                    for (let c = 0; c < 15; c++) {
-                        const p = this.board[r][c];
-                        if (p && p.owner === opp) {
-                            const moves = this.getPieceMoves(r, c, p);
-                            if (moves.some(m => m.r === kingPos.r && m.c === kingPos.c)) return true;
-                        }
-                    }
-                }
-                return false;
-            }
-
-            findKing(owner) {
-                for (let r = 0; r < 15; r++) {
-                    for (let c = 0; c < 15; c++) {
-                        const p = this.board[r][c];
-                        if (p && p.type === 'OU' && p.owner === owner) return { r, c };
-                    }
-                }
-                return null;
-            }
-
-            makeMove(move, promote = false, triggerEffects = true) {
-                const { from, to, type } = move;
-                let captured = [];
-                let originalPromotedState = false;
-
-                if (from === 'hand') {
-                    this.board[to.r][to.c] = { type, owner: this.turn, promoted: false };
-                    this.hands[this.turn][type]--;
-                } else {
-                    const piece = this.board[from.r][from.c];
-                    originalPromotedState = piece.promoted;
-                    
-                    // Standard capture
-                    const directCap = this.board[to.r][to.c];
-                    if (directCap) {
-                        this.hands[this.turn][directCap.type]++;
-                        captured.push({ ...directCap, r: to.r, c: to.c });
-                    }
-
-                    this.board[to.r][to.c] = { ...piece, promoted: promote || originalPromotedState };
-                    this.board[from.r][from.c] = null;
-                }
-
-                // SPECIAL SUMMIT TRIGGER: STOP AT (7, 7) TRIGGER "MOUNTAIN CAPTURE"
-                let mountainCapTriggered = false;
-                if (to.r === 7 && to.c === 7) {
-                    // Check all 5x5 mountain squares (rows 5 to 9, cols 5 to 9) for enemy pieces
-                    for (let r = 5; r <= 9; r++) {
-                        for (let c = 5; c <= 9; c++) {
-                            if (r === 7 && c === 7) continue; // Exclude the summit piece itself
-                            const target = this.board[r][c];
-                            if (target && target.owner === -this.turn) {
-                                this.hands[this.turn][target.type]++;
-                                captured.push({ ...target, r, c });
-                                this.board[r][c] = null; // Clear it out!
-                                mountainCapTriggered = true;
-                            }
-                        }
-                    }
-                }
-
-                // Sound & Visual Effect on Mountain Capture
-                if (mountainCapTriggered && triggerEffects) {
-                    triggerMountainCaptureEffect();
-                }
-
-                this.history.push({ 
-                    move, 
-                    promote: promote && !originalPromotedState, 
-                    captured, 
-                    lastMove: this.lastMove,
-                    mountainCapTriggered
-                });
-                
-                this.lastMove = move;
+            getLegalMoves(owner) { const moves = []; for(let r=0; r<BOARD_SIZE; r++) { for(let c=0; c<BOARD_SIZE; c++) { const p = this.board[r][c]; if(p && p.owner === owner) this.getPieceMoves(r, c, p).forEach(m => moves.push({from: {r,c}, to: m})); } } for(let type in this.hands[owner]) if(this.hands[owner][type] > 0) for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) if(!this.board[r][c]) moves.push({from: 'hand', type, to: {r,c}}); return moves; }
+            makeMove(m) {
+                const piece = m.from === 'hand' ? {type: m.type, owner: this.turn, promoted: false} : this.board[m.from.r][m.from.c];
+                const target = this.board[m.to.r][m.to.c]; if(target) this.hands[this.turn][target.type]++;
+                this.board[m.to.r][m.to.c] = piece; if(m.from !== 'hand') this.board[m.from.r][m.from.c] = null;
+                if(m.to.r === PEAK.r && m.to.c === PEAK.c) this.triggerMountainCapture();
+                if(!piece.promoted && PIECES[piece.type].prom) if((this.turn === SENTE && m.to.r <= 2) || (this.turn === GOTE && m.to.r >= 12)) piece.promoted = true;
                 this.turn = -this.turn;
             }
-
-            undoMove() {
-                if (this.history.length === 0) return;
-                const last = this.history.pop();
-                const { move, promote, captured, lastMove } = last;
-                this.turn = -this.turn;
-
-                if (move.from === 'hand') {
-                    this.board[move.to.r][move.to.c] = null;
-                    this.hands[this.turn][move.type]++;
-                } else {
-                    const piece = this.board[move.to.r][move.to.c];
-                    if (promote) piece.promoted = false;
-                    this.board[move.from.r][move.from.c] = piece;
-                    this.board[move.to.r][move.to.c] = null;
-
-                    // Revert all captured pieces (direct + mountain captures)
-                    captured.forEach(cap => {
-                        this.board[cap.r][cap.c] = { type: cap.type, owner: cap.owner, promoted: cap.promoted };
-                        this.hands[this.turn][cap.type]--;
-                    });
-                }
-                this.lastMove = lastMove;
-            }
-
-            evaluate() {
-                // If turn has no moves left
-                if (this.getLegalMoves(this.turn).length === 0) {
-                    return this.turn === SENTE ? -9999999 : 9999999;
-                }
-
-                let score = 0;
-                for (let r = 0; r < 15; r++) {
-                    for (let c = 0; c < 15; c++) {
-                        const p = this.board[r][c];
-                        if (p) {
-                            let val = p.promoted ? PIECES[p.type].promVal : PIECES[p.type].val;
-                            
-                            // High priority of mountain ownership
-                            const distFromSummit = Math.abs(7 - r) + Math.abs(7 - c);
-                            if (distFromSummit <= 2) {
-                                val += (4 - distFromSummit) * 60; // Extra points for being close to or on the summit
-                            }
-
-                            score += val * p.owner;
-                        }
-                    }
-                }
-                
-                // Value of hands
-                for (let side of [SENTE, GOTE]) {
-                    for (let t in this.hands[side]) {
-                        score += this.hands[side][t] * PIECES[t].val * 1.25 * side;
-                    }
-                }
-                return score;
+            triggerMountainCapture() {
+                playSfx('peak'); document.getElementById('flash').classList.add('flash-trigger'); setTimeout(() => document.getElementById('flash').classList.remove('flash-trigger'), 500);
+                for(let r = 5; r <= 9; r++) for(let c = 5; c <= 9; c++) { if(r === PEAK.r && c === PEAK.c) continue; const p = this.board[r][c]; if(p && p.owner !== this.turn) { this.hands[this.turn][p.type]++; this.board[r][c] = null; log(`山狩り！ ${15-c}の${r+1}にいた敵を捕獲！`); } }
             }
         }
-
-        class ShogiAI {
-            constructor(game) {
-                this.game = game;
-                this.nodes = 0;
-                this.startTime = 0;
-            }
-
-            getMove(difficulty) {
-                this.nodes = 0;
-                this.startTime = Date.now();
-                const moves = this.game.getLegalMoves(this.game.turn);
-                if (moves.length === 0) return null;
-
-                if (difficulty === 'beginner') {
-                    return moves[Math.floor(Math.random() * moves.length)];
-                }
-
-                let bestMove = moves[0];
-                let maxDepth = (difficulty === 'advanced') ? 2 : 1; // 2 depths are very solid for 15x15 (brilliant speed)
-
-                try {
-                    const result = this.alphabeta(maxDepth, -Infinity, Infinity, this.game.turn === SENTE);
-                    bestMove = result.move || moves[0];
-                } catch(e) {
-                    console.error("AI error: ", e);
-                }
-
-                console.log(`Explored nodes: ${this.nodes} in ${Date.now() - this.startTime}ms`);
-                return bestMove;
-            }
-
-            alphabeta(depth, alpha, beta, maximizing) {
-                this.nodes++;
-                if (depth === 0) return { score: this.game.evaluate() };
-
-                const moves = this.orderMoves(this.game.getLegalMoves(this.game.turn));
-                if (moves.length === 0) {
-                    return { score: maximizing ? -9000000 : 9000000 };
-                }
-
-                let bestMove = moves[0];
-                if (maximizing) {
-                    let maxEval = -Infinity;
-                    for (const m of moves) {
-                        const canProm = this.canPromoteCheck(m);
-                        this.game.makeMove(m, canProm, false);
-                        const ev = this.alphabeta(depth - 1, alpha, beta, false).score;
-                        this.game.undoMove();
-                        if (ev > maxEval) {
-                            maxEval = ev;
-                            bestMove = m;
-                        }
-                        alpha = Math.max(alpha, ev);
-                        if (beta <= alpha) break;
-                    }
-                    return { score: maxEval, move: bestMove };
-                } else {
-                    let minEval = Infinity;
-                    for (const m of moves) {
-                        const canProm = this.canPromoteCheck(m);
-                        this.game.makeMove(m, canProm, false);
-                        const ev = this.alphabeta(depth - 1, alpha, beta, true).score;
-                        this.game.undoMove();
-                        if (ev < minEval) {
-                            minEval = ev;
-                            bestMove = m;
-                        }
-                        beta = Math.min(beta, ev);
-                        if (beta <= alpha) break;
-                    }
-                    return { score: minEval, move: bestMove };
-                }
-            }
-
-            orderMoves(moves) {
-                return moves.sort((a, b) => {
-                    let scoreA = 0;
-                    let scoreB = 0;
-                    
-                    // Priotize taking pieces
-                    if (a.to && this.game.board[a.to.r][a.to.c]) {
-                        scoreA += 1000 + PIECES[this.game.board[a.to.r][a.to.c].type].val;
-                    }
-                    if (b.to && this.game.board[b.to.r][b.to.c]) {
-                        scoreB += 1000 + PIECES[this.game.board[b.to.r][b.to.c].type].val;
-                    }
-
-                    // Prioritize summit captures
-                    if (a.to.r === 7 && a.to.c === 7) scoreA += 5000;
-                    if (b.to.r === 7 && b.to.c === 7) scoreB += 5000;
-
-                    return scoreB - scoreA;
-                });
-            }
-
-            canPromoteCheck(move) {
-                if (move.from === 'hand') return false;
-                const p = this.game.board[move.from.r][move.from.c];
-                if (!p || p.promoted || !PIECES[p.type].prom) return false;
-                if (p.owner === GOTE && (move.from.r >= 12 || move.to.r >= 12)) return true;
-                if (p.owner === SENTE && (move.from.r <= 2 || move.to.r <= 2)) return true;
-                return false;
-            }
-        }
-
-        const game = new MountainQuestShogi();
-        const ai = new ShogiAI(game);
-        let selectedCell = null;
-        let selectedHand = null;
-
-        const boardEl = document.getElementById('board');
-        const senteHandEl = document.getElementById('sente-hand');
-        const goteHandEl = document.getElementById('gote-hand');
-        const senteTurnBadge = document.getElementById('sente-turn-badge');
-        const goteTurnBadge = document.getElementById('gote-turn-badge');
-        const logContainer = document.getElementById('log-container');
-        const promoModal = document.getElementById('promotion-modal');
-
-        function triggerMountainCaptureEffect() {
-            playTempleGong();
-            const flash = document.getElementById('flash-overlay');
-            flash.classList.add('flash-active');
-            setTimeout(() => {
-                flash.classList.remove('flash-active');
-            }, 800);
-        }
-
+        const game = new Game(); let selected = null; let validMoves = [];
         function render() {
-            boardEl.innerHTML = '';
-            const legalMoves = (selectedCell || selectedHand) ? getAvailableMovesForSelection() : [];
-
-            for (let r = 0; r < 15; r++) {
-                for (let c = 0; c < 15; c++) {
-                    const cell = document.createElement('div');
-                    
-                    // Determine cell background styling based on mountain zones
-                    // Center Summit (7, 7)
-                    if (r === 7 && c === 7) {
-                        cell.className = 'cell cell-tier3';
-                    } 
-                    // Tier 2 (Mid-mountain): rows 6-8, cols 6-8 (except 7,7)
-                    else if (r >= 6 && r <= 8 && c >= 6 && c <= 8) {
-                        cell.className = 'cell cell-tier2';
-                    } 
-                    // Tier 1 (Base): rows 5-9, cols 5-9 (except above)
-                    else if (r >= 5 && r <= 9 && c >= 5 && c <= 9) {
-                        cell.className = 'cell cell-tier1';
-                    } 
-                    // Normal valleys
-                    else {
-                        cell.className = 'cell cell-normal';
-                    }
-
-                    const piece = game.board[r][c];
-                    if (piece) {
-                        const span = document.createElement('span');
-                        span.className = `piece-img ${piece.owner === SENTE ? 'piece-sente' : 'piece-gote'} ${piece.promoted ? 'piece-promoted' : ''}`;
-                        
-                        // Handle localized titles
-                        if (piece.type === 'OU') {
-                            span.textContent = piece.owner === SENTE ? PIECES.OU.name : PIECES.OU.nameGote;
-                        } else {
-                            span.textContent = piece.promoted ? PIECES[piece.type].prom : PIECES[piece.type].name;
-                        }
-                        cell.appendChild(span);
-                    }
-
-                    if (selectedCell && selectedCell.r === r && selectedCell.c === c) {
-                        cell.classList.add('selected');
-                    }
-
-                    if (legalMoves.some(m => m.to.r === r && m.to.c === c)) {
-                        cell.classList.add('valid-move');
-                    }
-
-                    cell.onclick = () => handleCellClick(r, c);
-                    boardEl.appendChild(cell);
-                }
+            const b = document.getElementById('board'); b.innerHTML = '';
+            for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) {
+                const div = document.createElement('div'); div.className = `cell ${getAlt(r,c)}`;
+                if(selected && selected.r === r && selected.c === c) div.classList.add('selected');
+                if(validMoves.some(m => m.r === r && m.c === c)) div.classList.add('valid-move');
+                const p = game.board[r][c]; if(p) { const span = document.createElement('span'); span.className = `piece piece-${p.owner === SENTE ? 'sente' : 'gote'} ${p.promoted ? 'piece-promoted' : ''}`; span.innerText = p.promoted ? PIECES[p.type].prom : (p.owner === SENTE ? PIECES[p.type].name : (PIECES[p.type].nameGote || PIECES[p.type].name)); div.appendChild(span); }
+                div.onclick = () => handleClick(r, c); b.appendChild(div);
             }
-
-            renderHand(SENTE, senteHandEl);
-            renderHand(GOTE, goteHandEl);
-
-            // Set up turn indicators
-            if (game.turn === SENTE) {
-                senteTurnBadge.classList.remove('hidden');
-                goteTurnBadge.classList.add('hidden');
-            } else {
-                senteTurnBadge.classList.add('hidden');
-                goteTurnBadge.classList.remove('hidden');
-            }
+            renderHand(SENTE, 'sente-hand'); renderHand(GOTE, 'gote-hand');
+            document.getElementById('sente-status').style.display = game.turn === SENTE ? 'block' : 'none';
+            document.getElementById('gote-status').style.display = game.turn === GOTE ? 'block' : 'none';
         }
-
-        // Render Sente and Gote hands
-        function renderHand(owner, el) {
-            el.innerHTML = '';
-            const sortedTypes = ['HI', 'KA', 'KI', 'GI', 'KE', 'KY', 'FU'];
-            for (let type of sortedTypes) {
-                const count = game.hands[owner][type];
-                if (count > 0) {
-                    const div = document.createElement('div');
-                    div.className = `hand-piece w-9 h-9 flex items-center justify-center rounded-lg font-bold text-sm shadow-sm transition ${selectedHand && selectedHand.type === type && selectedHand.owner === owner ? 'selected' : ''}`;
-                    div.textContent = `${PIECES[type].name}`;
-                    
-                    // Badge count
-                    if (count > 1) {
-                        const badge = document.createElement('span');
-                        badge.className = 'absolute -top-1 -right-1 bg-red-600 text-white text-[9px] px-1 rounded-full';
-                        badge.textContent = count;
-                        div.style.position = 'relative';
-                        div.appendChild(badge);
-                    }
-
-                    if (owner === SENTE && game.turn === SENTE) {
-                        div.onclick = (e) => {
-                            e.stopPropagation();
-                            selectedCell = null;
-                            selectedHand = { type, owner };
-                            render();
-                        };
-                    }
-                    el.appendChild(div);
-                }
-            }
+        function getAlt(r, c) { if(r === PEAK.r && c === PEAK.c) return 'cell-summit'; if(r >= 6 && r <= 8 && c >= 6 && c <= 8) return 'cell-mountain-mid'; if(r >= 5 && r <= 9 && c >= 5 && c <= 9) return 'cell-mountain-base'; return 'cell-plain'; }
+        function renderHand(owner, id) { const el = document.getElementById(id); el.innerHTML = ''; for(let t in game.hands[owner]) { const n = game.hands[owner][t]; if(n > 0) { const d = document.createElement('div'); d.className = 'hand-piece'; d.innerText = `${PIECES[t].name}${n > 1 ? n : ''}`; if(owner === SENTE && game.turn === SENTE) d.onclick = (e) => { e.stopPropagation(); selectHand(t); }; el.appendChild(d); } } }
+        function handleClick(r, c) {
+            if(game.turn !== SENTE) return; const targetMove = validMoves.find(m => m.r === r && m.c === c);
+            if(targetMove) { const moveData = selected.from === 'hand' ? {from: 'hand', type: selected.type, to: {r,c}} : {from: selected, to: {r,c}}; game.makeMove(moveData); playSfx('move'); selected = null; validMoves = []; render(); setTimeout(cpuMove, 800); }
+            else { const p = game.board[r][c]; if(p && p.owner === SENTE) { selected = {r, c}; validMoves = game.getPieceMoves(r, c, p); } else { selected = null; validMoves = []; } render(); }
         }
-
-        function getAvailableMovesForSelection() {
-            const allLegal = game.getLegalMoves(SENTE);
-            if (selectedCell) return allLegal.filter(m => m.from.r === selectedCell.r && m.from.c === selectedCell.c);
-            if (selectedHand) return allLegal.filter(m => m.from === 'hand' && m.type === selectedHand.type);
-            return [];
-        }
-
-        function handleCellClick(r, c) {
-            if (game.turn !== SENTE) return;
-            const piece = game.board[r][c];
-            if (piece && piece.owner === SENTE) {
-                selectedCell = { r, c };
-                selectedHand = null;
-                render();
-                return;
-            }
-            const moves = getAvailableMovesForSelection();
-            const validMove = moves.find(m => m.to.r === r && m.to.c === c);
-            if (validMove) {
-                checkPromotion(validMove);
-            } else {
-                selectedCell = null;
-                selectedHand = null;
-                render();
-            }
-        }
-
-        function checkPromotion(move) {
-            if (move.from === 'hand') {
-                executeMove(move, false);
-                return;
-            }
-            const p = game.board[move.from.r][move.from.c];
-            const canPromote = PIECES[p.type].prom && !p.promoted && (move.from.r <= 2 || move.to.r <= 2);
-            
-            if (canPromote) {
-                const mustPromote = (p.type === 'FU' || p.type === 'KY') && move.to.r === 0 || (p.type === 'KE' && move.to.r <= 1);
-                if (mustPromote) {
-                    executeMove(move, true);
-                } else {
-                    promoModal.classList.remove('hidden');
-                    document.getElementById('promote-yes').onclick = () => {
-                        promoModal.classList.add('hidden');
-                        executeMove(move, true);
-                    };
-                    document.getElementById('promote-no').onclick = () => {
-                        promoModal.classList.add('hidden');
-                        executeMove(move, false);
-                    };
-                }
-            } else {
-                executeMove(move, false);
-            }
-        }
-
-        function executeMove(move, promote) {
-            const piece = move.from === 'hand' ? { type: move.type } : game.board[move.from.r][move.from.c];
-            playWoodenClapper();
-            
-            // Format movement logs
-            const text = formatMove(move, promote, piece);
-            addLog(`あなた: ${text}`);
-
-            // Perform Move
-            game.makeMove(move, promote, true);
-            selectedCell = null;
-            selectedHand = null;
-            render();
-
-            if (checkGameOver()) return;
-
-            // Trigger CPU's turn
-            setTimeout(() => {
-                if (game.turn === GOTE) {
-                    const aiMove = ai.getMove(document.getElementById('difficulty').value);
-                    if (aiMove) {
-                        const aiProm = ai.canPromoteCheck(aiMove);
-                        const aiPiece = aiMove.from === 'hand' ? { type: aiMove.type } : game.board[aiMove.from.r][aiMove.from.c];
-                        playWoodenClapper();
-                        addLog(`CPU: ${formatMove(aiMove, aiProm, aiPiece)}`);
-                        game.makeMove(aiMove, aiProm, true);
-                        render();
-                        checkGameOver();
-                    } else {
-                        addLog("CPUが投了しました！あなたの勝利です。");
-                    }
-                }
-            }, 600);
-        }
-
-        function formatMove(move, promote, piece) {
-            const toStr = `${15 - move.to.c}の${move.to.r + 1}`;
-            const isMountainEvent = move.to.r === 7 && move.to.c === 7;
-            const eventStr = isMountainEvent ? "（★山狩り発動！）" : "";
-            return `${toStr}${PIECES[piece.type].name}${promote ? '成' : ''}${eventStr}`;
-        }
-
-        function addLog(text) {
-            const div = document.createElement('div');
-            div.className = 'text-slate-300 py-0.5 border-b border-slate-900 last:border-none';
-            div.textContent = text;
-            logContainer.prepend(div);
-        }
-
-        function checkGameOver() {
-            const moves = game.getLegalMoves(game.turn);
-            if (moves.length === 0) {
-                const winner = game.turn === SENTE ? "CPU（王）" : "あなた（玉）";
-                addLog(`※ 詰み！ 覇者は ${winner} です。`);
-                return true;
-            }
-            return false;
-        }
-
-        document.getElementById('reset-btn').onclick = () => {
-            game.init();
-            logContainer.innerHTML = '<div class="text-amber-400 font-bold">※ 山狩りの発動を狙って頂上を目指そう！</div>';
-            render();
-        };
-
-        // Run on load
+        function selectHand(type) { selected = {from: 'hand', type}; validMoves = []; for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) if(!game.board[r][c]) validMoves.push({r,c}); render(); }
+        function cpuMove() { const moves = game.getLegalMoves(GOTE); if(moves.length > 0) { const peakMove = moves.find(m => m.to.r === PEAK.r && m.to.c === PEAK.c); const finalMove = peakMove || moves[Math.floor(Math.random() * moves.length)]; game.makeMove(finalMove); playSfx('move'); render(); } }
+        function log(msg) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerText = msg; l.prepend(d); }
         render();
     </script>
 </body>
 </html>
+
+このコードをGitHubの `mq` リポジトリの `index.html` にそのまま貼り付けて保存してください。頂上に駒を置いた際の特別な挙動がすぐに確認できるはずです！
