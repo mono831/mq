@@ -3,93 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mountain Quest Shogi - Final Edition</title>
+    <title>Mountain Quest Shogi 2.1 - Fixed Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { background-color: #0f172a; color: #f1f5f9; font-family: 'Noto Serif JP', serif; overflow-x: hidden; }
+        body { background-color: #020617; color: #f1f5f9; font-family: 'Noto Serif JP', serif; user-select: none; }
         .shogi-board {
             display: grid; grid-template-columns: repeat(15, 1fr);
             aspect-ratio: 1 / 1; width: 100%; max-width: 650px;
-            border: 4px solid #451a03; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            border: 5px solid #451a03; box-shadow: 0 0 50px rgba(0,0,0,0.8);
             background-color: #dfc28d;
         }
-        .cell { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(0,0,0,0.15); transition: background 0.2s; }
-        /* 標高別カラー */
+        .cell { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(0,0,0,0.2); }
+        
+        /* 標高デザイン */
         .cell-plain { background-color: #dfc28d; }
-        .cell-mountain-base { background-color: #8fa882; } /* 裾野 */
-        .cell-mountain-mid { background-color: #637a77; }  /* 中腹 */
+        .cell-mountain-base { background-color: #8fa882; } /* 5x5 Area */
+        .cell-mountain-mid { background-color: #637a77; }  /* 3x3 Area */
         .cell-summit { 
-            background-color: #b45309; border: 3px solid #fbbf24 !important;
+            background-color: #b45309; border: 2px solid #fbbf24 !important;
             animation: summit-glow 2s infinite alternate;
         }
         @keyframes summit-glow { from { box-shadow: inset 0 0 5px #fbbf24; } to { box-shadow: inset 0 0 20px #fbbf24; } }
 
-        .cell.selected { background-color: #eab308 !important; z-index: 5; }
+        /* 状態表示 */
+        .cell.selected { background-color: #eab308 !important; }
+        .cell.last-move { background-color: rgba(255, 255, 255, 0.4) !important; }
         .cell.valid-move::after {
-            content: ''; width: 12px; height: 12px; background: rgba(34, 197, 94, 0.7);
+            content: ''; width: 14px; height: 14px; background: rgba(34, 197, 94, 0.8);
             border: 2px solid white; border-radius: 50%; position: absolute; z-index: 10;
         }
-        .piece { font-size: 1.2rem; font-weight: bold; z-index: 20; transition: transform 0.2s; cursor: pointer; }
+        
+        /* 駒デザイン */
+        .piece { font-size: 1.25rem; font-weight: bold; z-index: 20; transition: transform 0.2s; }
         .piece-sente { color: #7f1d1d; text-shadow: 0 0 2px white; }
         .piece-gote { color: #1e293b; transform: rotate(180deg); text-shadow: 0 0 2px white; }
         .piece-promoted { color: #dc2626 !important; }
 
-        .hand-area { background: #1e293b; border: 2px solid #334155; border-radius: 8px; min-height: 70px; padding: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-        .hand-piece { background: #dfc28d; border: 1px solid #78350f; border-radius: 4px; padding: 2px 5px; font-size: 0.85rem; font-weight: bold; color: #7f1d1d; cursor: pointer; position: relative; }
-        .hand-count { position: absolute; -top: 8px; -right: 8px; background: red; color: white; font-size: 0.6rem; padding: 1px 4px; border-radius: 10px; }
+        /* 持ち駒エリア */
+        .hand-area { background: #1e293b; border: 2px solid #334155; border-radius: 8px; min-height: 80px; padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .hand-piece { background: #dfc28d; border: 1px solid #78350f; border-radius: 4px; padding: 2px 8px; font-size: 0.9rem; font-weight: bold; color: #7f1d1d; cursor: pointer; position: relative; }
+        .hand-count { position: absolute; top: -10px; right: -10px; background: #dc2626; color: white; font-size: 0.7rem; padding: 1px 5px; border-radius: 10px; border: 1px solid white; }
 
-        #game-over-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        #flash { position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0; background: white; transition: opacity 0.3s; }
+        /* オーバーレイ */
+        #game-over { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        #flash { position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0; background: #fbbf24; transition: opacity 0.2s; }
     </style>
 </head>
-<body class="p-2 md:p-6">
+<body class="p-4 flex flex-col items-center">
     <div id="flash"></div>
-    
-    <!-- 勝敗画面 -->
-    <div id="game-over-overlay">
-        <h2 id="win-message" class="text-6xl font-bold text-amber-500 mb-8 font-cinzel text-center"></h2>
-        <button onclick="location.reload()" class="bg-amber-600 hover:bg-amber-500 text-white text-2xl font-bold px-12 py-4 rounded-full shadow-2xl transition">再戦する</button>
+    <div id="game-over">
+        <h2 id="win-msg" class="text-6xl font-bold text-amber-500 mb-10 text-center leading-tight whitespace-pre-wrap"></h2>
+        <button onclick="location.reload()" class="bg-amber-600 hover:bg-amber-500 text-white text-2xl font-bold px-16 py-5 rounded-full shadow-2xl transition-all active:scale-95">再開する</button>
     </div>
 
     <header class="mb-6 text-center">
-        <h1 class="text-3xl md:text-5xl font-bold font-cinzel text-amber-500 tracking-widest">MOUNTAIN QUEST 2.0</h1>
-        <p class="text-slate-400 text-sm">【勝利条件：敵の王を捕獲せよ】 15×15 霊峰戦記</p>
+        <h1 class="text-4xl font-bold font-cinzel text-amber-500 tracking-tighter">MOUNTAIN QUEST 2.1</h1>
+        <p class="text-slate-400 text-xs mt-1">15×15 霊峰将棋：中央の王を討ち取れ</p>
     </header>
 
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <!-- CPU Panel -->
-        <div class="flex flex-col gap-4">
+    <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- CPU Area -->
+        <div class="space-y-4">
             <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h2 class="font-bold text-red-500 mb-2 flex justify-between">CPU 後手(王) <span id="cpu-thinking" class="hidden text-xs animate-pulse text-white bg-red-600 px-2 rounded">思考中</span></h2>
+                <h2 class="font-bold text-red-500 mb-3 flex items-center justify-between">
+                    後手 CPU (王) <span id="cpu-tag" class="hidden text-[10px] bg-red-600 text-white px-2 py-0.5 rounded animate-pulse">思考中</span>
+                </h2>
                 <div id="gote-hand" class="hand-area"></div>
             </div>
-            <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-900/50 text-[11px] text-blue-100">
-                <p>● 頂上(7,7)到達で山狩り発動：5x5エリアの敵を一掃。</p>
-                <p class="mt-2">● 頂上の駒は「飛車+角」の動きに変化。</p>
+            <div class="bg-blue-900/10 p-4 rounded-xl border border-blue-900/30 text-[11px] text-blue-200">
+                <h3 class="font-bold border-b border-blue-900/50 mb-2 pb-1">山頂(7,7)の特殊効果</h3>
+                <p>・山狩り：移動完了時、周囲5×5マスの敵駒を全て捕獲。</p>
+                <p class="mt-1">・天空移動：山頂にいる間、飛車＋角の動きが可能。</p>
             </div>
         </div>
 
-        <!-- Board -->
+        <!-- Board Area -->
         <div class="lg:col-span-2 flex flex-col items-center">
             <div id="board" class="shogi-board"></div>
-            <div id="turn-display" class="mt-4 text-xl font-bold text-amber-400 font-cinzel">YOUR TURN</div>
+            <div id="status" class="mt-4 text-2xl font-bold text-amber-400 font-cinzel tracking-widest uppercase">Initializing...</div>
         </div>
 
-        <!-- Player Panel -->
-        <div class="flex flex-col gap-4">
+        <!-- Player Area -->
+        <div class="space-y-4">
             <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                <h2 class="font-bold text-amber-500 mb-2">あなた 先手(玉)</h2>
+                <h2 class="font-bold text-amber-500 mb-3">先手 あなた (玉)</h2>
                 <div id="sente-hand" class="hand-area"></div>
             </div>
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex-grow max-h-[250px] overflow-y-auto">
-                <h3 class="text-xs font-bold text-slate-500 mb-2 uppercase border-b border-slate-700 pb-1">戦記ログ</h3>
-                <div id="log" class="text-[10px] space-y-1 text-slate-300"></div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 h-[220px] flex flex-col">
+                <h3 class="text-[10px] font-bold text-slate-500 mb-2 border-b border-slate-800">BATTLE LOG</h3>
+                <div id="log" class="flex-grow overflow-y-auto text-[10px] space-y-1 text-slate-400"></div>
             </div>
-            <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded">最初からやり直す</button>
         </div>
     </div>
 
@@ -108,169 +115,176 @@
             OU: { name: '玉', nameGote: '王', val: 100000 }
         };
 
+        // SFX
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSfx(freq, dur) {
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
-            osc.start(); osc.stop(audioCtx.currentTime + dur);
+        function playSound(freq, dur) {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+            o.start(); o.stop(audioCtx.currentTime + dur);
         }
 
-        class ShogiGame {
+        class ShogiCore {
             constructor() {
                 this.board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
                 this.hands = { [SENTE]: {}, [GOTE]: {} };
                 for(let k in PIECES) { this.hands[SENTE][k] = 0; this.hands[GOTE][k] = 0; }
                 this.turn = SENTE;
-                this.gameActive = true;
-                this.setup();
+                this.isGameOver = false;
+                this.lastMove = null;
+                this.initSetup();
             }
 
-            setup() {
+            initSetup() {
                 const p = (r, c, type, owner) => this.board[r][c] = { type, owner, promoted: false };
-                // 通常将棋と同じ20枚の駒を配置 (15マスの中心に寄せる)
-                const backRow = ['KY','KE','GI','KI','OU','KI','GI','KE','KY'];
+                const layout = ['KY','KE','GI','KI','OU','KI','GI','KE','KY'];
                 for(let i=0; i<9; i++) {
-                    const col = i + 3; // 15マスのうち 3〜11列目を使用
-                    p(0, col, backRow[i], GOTE);
-                    p(14, col, backRow[i], SENTE);
+                    const col = i + 3;
+                    p(0, col, layout[i], GOTE);
+                    p(14, col, layout[i], SENTE);
+                    p(2, col, 'FU', GOTE);
+                    p(12, col, 'FU', SENTE);
                 }
                 p(1, 10, 'KA', GOTE); p(1, 4, 'HI', GOTE);
                 p(13, 4, 'KA', SENTE); p(13, 10, 'HI', SENTE);
-                for(let i=0; i<9; i++) {
-                    p(2, i+3, 'FU', GOTE);
-                    p(12, i+3, 'FU', SENTE);
-                }
             }
 
             getMoves(r, c, piece) {
-                const moves = []; const owner = piece.owner;
-                // 頂上ボーナス: クイーンの動き
+                const moves = []; const o = piece.owner;
+                // Summit Move (Queen logic)
                 if (r === PEAK.r && c === PEAK.c) {
-                    const dirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
-                    dirs.forEach(d => {
+                    [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => {
                         let nr = r + d[0], nc = c + d[1];
                         while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE) {
                             if(!this.board[nr][nc]) moves.push({r:nr, c:nc});
-                            else { if(this.board[nr][nc].owner !== owner) moves.push({r:nr, c:nc}); break; }
+                            else { if(this.board[nr][nc].owner !== o) moves.push({r:nr, c:nc}); break; }
                             nr+=d[0]; nc+=d[1];
                         }
-                    }); return moves;
+                    });
+                    return moves;
                 }
-                // 通常ルール
-                const add = (dr, dc, slide=false) => {
-                    let nr = r + dr*owner, nc = c + dc*owner;
+                // Regular Move
+                const scan = (dr, dc, slide=false) => {
+                    let nr = r + dr*o, nc = c + dc*o;
                     while(nr>=0 && nr<BOARD_SIZE && nc>=0 && nc<BOARD_SIZE) {
                         if(!this.board[nr][nc]) moves.push({r:nr, c:nc});
-                        else { if(this.board[nr][nc].owner !== owner) moves.push({r:nr, c:nc}); break; }
-                        if(!slide) break; nr+=dr*owner; nc+=dc*owner;
+                        else { if(this.board[nr][nc].owner !== o) moves.push({r:nr, c:nc}); break; }
+                        if(!slide) break; nr+=dr*o; nc+=dc*o;
                     }
                 };
-                const gold = () => [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]].forEach(d => add(d[0], d[1]));
+                const gold = () => [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,0]].forEach(d => scan(d[0], d[1]));
                 if(!piece.promoted) {
                     switch(piece.type) {
-                        case 'FU': add(-1, 0); break;
-                        case 'KY': add(-1, 0, true); break;
-                        case 'KE': [[-2,-1],[-2,1]].forEach(d => add(d[0], d[1])); break;
-                        case 'GI': [[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1])); break;
+                        case 'FU': scan(-1, 0); break;
+                        case 'KY': scan(-1, 0, true); break;
+                        case 'KE': [[-2,-1],[-2,1]].forEach(d => scan(d[0], d[1])); break;
+                        case 'GI': [[-1,-1],[-1,0],[-1,1],[1,-1],[1,1]].forEach(d => scan(d[0], d[1])); break;
                         case 'KI': gold(); break;
-                        case 'KA': [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1], true)); break;
-                        case 'HI': [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1], true)); break;
-                        case 'OU': [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(d => add(d[0], d[1])); break;
+                        case 'KA': [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => scan(d[0], d[1], true)); break;
+                        case 'HI': [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => scan(d[0], d[1], true)); break;
+                        case 'OU': [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(d => scan(d[0], d[1])); break;
                     }
                 } else {
                     if(['FU','KY','KE','GI'].includes(piece.type)) gold();
-                    else if(piece.type === 'KA') { [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1], true)); [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1])); }
-                    else if(piece.type === 'HI') { [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => add(d[0], d[1], true)); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => add(d[0], d[1])); }
+                    else if(piece.type === 'KA') { [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => scan(d[0], d[1], true)); [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => scan(d[0], d[1])); }
+                    else if(piece.type === 'HI') { [[-1,0],[1,0],[0,-1],[0,1]].forEach(d => scan(d[0], d[1], true)); [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(d => scan(d[0], d[1])); }
                 }
                 return moves;
             }
 
-            move(m) {
-                if(!this.gameActive) return;
-                const piece = m.from === 'hand' ? {type:m.type, owner:this.turn, promoted:false} : this.board[m.from.r][m.from.c];
+            executeMove(m) {
+                if(this.isGameOver) return;
+                const p = m.from === 'hand' ? {type:m.type, owner:this.turn, promoted:false} : this.board[m.from.r][m.from.c];
                 const target = this.board[m.to.r][m.to.c];
-                
+
                 if(target) {
-                    if(target.type === 'OU') this.endGame(this.turn);
                     this.hands[this.turn][target.type]++;
-                    log(`${this.turn === SENTE ? '先手' : '後手'}が${PIECES[target.type].name}を捕獲。`);
+                    addLog(`${this.turn === SENTE ? '先手' : '後手'}が${PIECES[target.type].name}を捕獲。`);
+                    if(target.type === 'OU') this.win(this.turn);
                 }
-                
-                this.board[m.to.r][m.to.c] = piece;
+
+                this.board[m.to.r][m.to.c] = p;
                 if(m.from !== 'hand') this.board[m.from.r][m.from.c] = null;
                 else this.hands[this.turn][m.type]--;
 
+                this.lastMove = m.to;
+
                 // 山狩り
-                if(m.to.r === PEAK.r && m.to.c === PEAK.c) this.mountainCapture();
+                if(m.to.r === PEAK.r && m.to.c === PEAK.c) {
+                    flashEffect(); playSound(150, 1.5);
+                    for(let r=5; r<=9; r++) for(let c=5; c<=9; c++) {
+                        if(r===PEAK.r && c===PEAK.c) continue;
+                        const enemy = this.board[r][c];
+                        if(enemy && enemy.owner !== this.turn) {
+                            this.hands[this.turn][enemy.type]++;
+                            this.board[r][c] = null;
+                            addLog(`山狩り！ ${PIECES[enemy.type].name}を捕獲！`);
+                            if(enemy.type === 'OU') this.win(this.turn);
+                        }
+                    }
+                }
 
                 // 自動成り
-                if(!piece.promoted && PIECES[piece.type].prom) {
-                    if((this.turn === SENTE && m.to.r <= 2) || (this.turn === GOTE && m.to.r >= 12)) piece.promoted = true;
+                if(!p.promoted && PIECES[p.type].prom) {
+                    if((this.turn === SENTE && m.to.r <= 2) || (this.turn === GOTE && m.to.r >= 12)) p.promoted = true;
                 }
 
                 this.turn = -this.turn;
-                updateUI();
             }
 
-            mountainCapture() {
-                playSfx(150, 1.5); flash();
-                for(let r=5; r<=9; r++) for(let c=5; c<=9; c++) {
-                    if(r===PEAK.r && c===PEAK.c) continue;
-                    const p = this.board[r][c];
-                    if(p && p.owner !== this.turn) {
-                        if(p.type === 'OU') this.endGame(this.turn);
-                        this.hands[this.turn][p.type]++;
-                        this.board[r][c] = null;
-                        log(`山狩り！山にいた敵の${PIECES[p.type].name}を捕獲！`);
-                    }
-                }
-            }
-
-            endGame(winner) {
-                this.gameActive = false;
-                const overlay = document.getElementById('game-over-overlay');
-                const msg = document.getElementById('win-message');
-                overlay.style.display = 'flex';
-                msg.innerText = winner === SENTE ? "YOU WIN! \n敵将、討ち取ったり！" : "DEFEAT... \n王が捕らえられました。";
+            win(side) {
+                this.isGameOver = true;
+                setTimeout(() => {
+                    document.getElementById('game-over').style.display = 'flex';
+                    document.getElementById('win-msg').innerText = side === SENTE ? "YOU WIN!\n敵陣、壊滅。" : "GAME OVER\n王、討ち取られる。";
+                }, 500);
             }
         }
 
-        const game = new ShogiGame();
-        let selected = null; let valids = [];
+        // Global state
+        const game = new ShogiCore();
+        let selected = null, valids = [], isThinking = false;
 
         function updateUI() {
             const b = document.getElementById('board'); b.innerHTML = '';
             for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) {
-                const d = document.createElement('div');
-                d.className = `cell ${getAlt(r,c)}`;
-                if(selected && selected.r===r && selected.c===c) d.classList.add('selected');
-                if(valids.some(v => v.r===r && v.c===c)) d.classList.add('valid-move');
+                const cell = document.createElement('div');
+                cell.className = `cell ${getAltitude(r,c)}`;
+                if(selected && selected.r===r && selected.c===c) cell.classList.add('selected');
+                if(game.lastMove && game.lastMove.r===r && game.lastMove.c===c) cell.classList.add('last-move');
+                if(valids.some(v => v.r===r && v.c===c)) cell.classList.add('valid-move');
+
                 const p = game.board[r][c];
                 if(p) {
                     const s = document.createElement('span');
                     s.className = `piece piece-${p.owner===SENTE?'sente':'gote'} ${p.promoted?'piece-promoted':''}`;
                     s.innerText = p.promoted ? PIECES[p.type].prom : (p.owner===SENTE?PIECES[p.type].name:(PIECES[p.type].nameGote||PIECES[p.type].name));
-                    d.appendChild(s);
+                    cell.appendChild(s);
                 }
-                d.onclick = () => click(r,c);
-                b.appendChild(d);
+                cell.onclick = () => onCellClick(r,c);
+                b.appendChild(cell);
             }
-            drawHand(SENTE, 'sente-hand'); drawHand(GOTE, 'gote-hand');
-            document.getElementById('turn-display').innerText = game.turn === SENTE ? "YOUR TURN" : "CPU THINKING...";
-            document.getElementById('cpu-thinking').style.display = game.turn === GOTE ? 'block' : 'none';
-            if(game.turn === GOTE && game.gameActive) setTimeout(cpu, 800);
+            renderHand(SENTE, 'sente-hand'); renderHand(GOTE, 'gote-hand');
+            
+            const statusEl = document.getElementById('status');
+            if(game.isGameOver) {
+                statusEl.innerText = "FINISH";
+            } else {
+                statusEl.innerText = game.turn === SENTE ? "YOUR TURN" : "CPU TURN";
+                statusEl.className = `mt-4 text-2xl font-bold font-cinzel tracking-widest uppercase ${game.turn===SENTE?'text-amber-400':'text-red-500'}`;
+            }
+            document.getElementById('cpu-tag').style.display = (game.turn === GOTE && !game.isGameOver) ? 'block' : 'none';
         }
 
-        function getAlt(r, c) {
+        function getAltitude(r, c) {
             if(r===7 && c===7) return 'cell-summit';
             if(r>=6 && r<=8 && c>=6 && c<=8) return 'cell-mountain-mid';
             if(r>=5 && r<=9 && c>=5 && c<=9) return 'cell-mountain-base';
             return 'cell-plain';
         }
 
-        function drawHand(owner, id) {
+        function renderHand(owner, id) {
             const el = document.getElementById(id); el.innerHTML = '';
             for(let k in game.hands[owner]) {
                 const n = game.hands[owner][k];
@@ -278,53 +292,64 @@
                     const d = document.createElement('div'); d.className = 'hand-piece';
                     d.innerText = PIECES[k].name;
                     if(n>1) { const c = document.createElement('span'); c.className='hand-count'; c.innerText=n; d.appendChild(c); }
-                    if(owner === SENTE && game.turn === SENTE) d.onclick = (e) => { e.stopPropagation(); selectHand(k); };
+                    if(owner === SENTE && game.turn === SENTE && !isThinking) d.onclick = (e) => { e.stopPropagation(); onHandClick(k); };
                     el.appendChild(d);
                 }
             }
         }
 
-        function click(r, c) {
-            if(!game.gameActive || game.turn !== SENTE) return;
+        function onCellClick(r, c) {
+            if(game.isGameOver || game.turn !== SENTE || isThinking) return;
             const move = valids.find(v => v.r===r && v.c===c);
             if(move) {
                 const data = selected.from === 'hand' ? {from:'hand', type:selected.type, to:{r,c}} : {from:selected, to:{r,c}};
-                game.move(data); playSfx(600, 0.1);
+                game.executeMove(data); playSound(600, 0.1);
                 selected = null; valids = [];
+                updateUI();
+                if(!game.isGameOver) triggerCPU();
             } else {
                 const p = game.board[r][c];
                 if(p && p.owner === SENTE) { selected = {r,c}; valids = game.getMoves(r,c,p); }
                 else { selected = null; valids = []; }
+                updateUI();
             }
-            updateUI();
         }
 
-        function selectHand(type) {
+        function onHandClick(type) {
             selected = {from:'hand', type}; valids = [];
             for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) if(!game.board[r][c]) valids.push({r,c});
             updateUI();
         }
 
-        function cpu() {
-            if(!game.gameActive) return;
-            const moves = [];
-            for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) {
-                const p = game.board[r][c];
-                if(p && p.owner === GOTE) game.getMoves(r,c,p).forEach(m => moves.push({from:{r,c}, to:m}));
-            }
-            if(moves.length > 0) {
-                // 王を優先して取る
-                const winMove = moves.find(m => game.board[m.to.r][m.to.c]?.type === 'OU');
-                const peakMove = moves.find(m => m.to.r === 7 && m.to.c === 7);
-                const final = winMove || peakMove || moves[Math.floor(Math.random()*moves.length)];
-                game.move(final); playSfx(400, 0.1);
-            }
+        function triggerCPU() {
+            isThinking = true;
+            setTimeout(() => {
+                const moves = [];
+                for(let r=0; r<BOARD_SIZE; r++) for(let c=0; c<BOARD_SIZE; c++) {
+                    const p = game.board[r][c];
+                    if(p && p.owner === GOTE) game.getMoves(r,c,p).forEach(m => moves.push({from:{r,c}, to:m}));
+                }
+                // AI Choice
+                if(moves.length > 0) {
+                    const winM = moves.find(m => game.board[m.to.r][m.to.c]?.type === 'OU');
+                    const peakM = moves.find(m => m.to.r === 7 && m.to.c === 7);
+                    const captureM = moves.filter(m => game.board[m.to.r][m.to.c]).sort((a,b) => PIECES[game.board[b.to.r][b.to.c].type].val - PIECES[game.board[a.to.r][a.to.c].type].val)[0];
+                    
+                    const final = winM || peakM || captureM || moves[Math.floor(Math.random()*moves.length)];
+                    game.executeMove(final); playSound(400, 0.1);
+                }
+                isThinking = false;
+                updateUI();
+            }, 800);
         }
 
-        function log(m) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerText = m; l.prepend(d); }
-        function flash() { const f = document.getElementById('flash'); f.style.opacity = 1; setTimeout(() => f.style.opacity = 0, 300); }
+        function addLog(m) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerText = `> ${m}`; l.prepend(d); }
+        function flashEffect() { const f = document.getElementById('flash'); f.style.opacity = 0.8; setTimeout(() => f.style.opacity = 0, 200); }
 
+        // Start
         updateUI();
+        addLog("対局開始。");
     </script>
 </body>
 </html>
+
